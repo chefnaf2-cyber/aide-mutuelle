@@ -92,4 +92,10 @@ elif choix_menu == "Espace de Validation 🔐":
                     st.success("Paiement validé !")
         else:
             st.write("Rien à valider pour le moment.")o
-u
+        else:
+            st.write("Retrait disponible prochainement.")
+
+# --- PARTIE VALIDATION ---
+elifchoix_menu == "Validation":
+    st.title("Espace Admin")
+    st.write("Réservé à la gestion des membres.")

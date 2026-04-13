@@ -1,41 +1,94 @@
 import streamlit as st
+from datetime import datetime, timedelta
 
-# --- DESIGN DU TITRE ---
-st.markdown("<h1 style='text-align: center; color: #FFD700; text-shadow: 2px 2px #000000;'>🤝 AIDE MUTUELLE</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; font-size: 1.2em;'><b>L'union fait la force - Niger</b></p>", unsafe_allow_html=True)
+# Configuration du site
+st.set_page_config(page_title="Mutuelle Niger", page_icon="🤝")
 
-# --- MENU DE NAVIGATION ---
-menu = st.sidebar.radio("Menu principal", ["Inscription & Parrainage", "Investir (Packs)", "Suivi de mon Cycle"])
+# Style Jaune Niger
+st.markdown("""
+    <style>
+    .stButton>button { width: 100%; border-radius: 15px; background-color: #FFD700; color: black; font-weight: bold; }
+    .title { text-align: center; color: #FFD700; font-size: 35px; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
 
-if menu == "Inscription & Parrainage":
-    st.subheader("📝 Créer mon compte")
-    nom = st.text_input("Nom complet")
-    tel = st.text_input("Numéro Airtel Money")
-    code_p = st.text_input("Code de parrainage (Optionnel)")
-    if st.button("S'inscrire"):
-        if nom and tel:
-            st.success(f"Félicitations {nom} ! Inscription réussie.")
+# Mémoire du robot
+if 'membres' not in st.session_state:
+    st.session_state.membres = {}
+if 'file_attente' not in st.session_state:
+    st.session_state.file_attente = []
+if 'alertes_retrait' not in st.session_state:
+    st.session_state.alertes_retrait = []
+
+st.markdown("<div class='title'>MUTUELLE NIGER</div>", unsafe_allow_html=True)
+
+# Menu sur le côté
+choix_menu = st.sidebar.radio("Navigation", ["Inscription", "Mon Espace Personnel", "Espace de Validation 🔐"])
+
+# --- PARTIE INSCRIPTION ---
+if choix_menu == "Inscription":
+    st.info("💸 Faites votre dépôt Airtel Money au : **+227 89 06 28 06**")
+    with st.form("formulaire_inscription"):
+        nom_complet = st.text_input("Nom et Prénom")
+        numero_tel = st.text_input("Numéro Airtel Money")
+        mot_de_passe = st.text_input("Créez votre mot de passe", type="password")
+        preuve_photo = st.file_uploader("Capture d'écran du transfert", type=["jpg", "png"])
+        
+        bouton_valider = st.form_submit_button("VALIDER MON INSCRIPTION")
+        
+        if bouton_valider:
+            if nom_complet and numero_tel and mot_de_passe and preuve_photo:
+                st.session_state.membres[numero_tel] = {
+                    "nom": nom_complet, "mdp": mot_de_passe, "statut": "En attente", 
+                    "date_inscription": datetime.now(), "nombre_retraits": 0
+                }
+                if len(st.session_state.file_attente) > 0:
+                    partenaire = st.session_state.file_attente.pop(0)
+                    st.session_state.membres[numero_tel]["statut"] = "Couplé"
+                    st.session_state.membres[partenaire]["statut"] = "Couplé"
+                    st.balloons()
+                    st.success("Couplage réussi ! Bienvenue.")
+                else:
+                    st.session_state.file_attente.append(numero_tel)
+                    st.info("Dépôt reçu. Le robot vous couplera bientôt.")
+            else:
+                st.error("Veuillez remplir toutes les cases.")
+
+# --- PARTIE MON ESPACE ---
+elif choix_menu == "Mon Espace Personnel":
+    entrer_tel = st.text_input("Votre Numéro Airtel")
+    entrer_mdp = st.text_input("Votre Mot de Passe", type="password")
+    
+    if entrer_tel in st.session_state.membres and st.session_state.membres[entrer_tel]["mdp"] == entrer_mdp:
+        utilisateur = st.session_state.membres[entrer_tel]
+        st.write(f"### Bonjour {utilisateur['nom']}")
+        st.write(f"État du compte : **{utilisateur['statut']}**")
+        
+        # Calcul des 14 jours
+        date_retrait = utilisateur["date_inscription"] + timedelta(days=14)
+        
+        if datetime.now() >= date_retrait and utilisateur["statut"] == "Couplé" and utilisateur["nombre_retraits"] < 2:
+            st.success("💰 Votre gain de 4 000 FCFA est prêt !")
+            if st.button("DEMANDER MON RETRAIT MAINTENANT"):
+                st.session_state.alertes_retrait.append({"nom": utilisateur["nom"], "tel": entrer_tel})
+                st.info("Demande envoyée au système.")
         else:
-            st.error("Veuillez remplir votre nom et votre numéro.")
+            if utilisateur["nombre_retraits"] >= 2:
+                st.warning("Cycle terminé. Veuillez réinvestir.")
+            else:
+                st.write(f"Retrait disponible le : {date_retrait.strftime('%d/%m/%Y')}")
 
-elif menu == "Investir (Packs)":
-    st.subheader("💎 Choisissez votre Pack d'investissement")
-    pack = st.selectbox("Sélectionnez votre pack :", ["Bronze (5 000 FCFA)", "Argent (10 000 FCFA)", "Or (20 000 FCFA)"])
-    
-    # Calcul des gains selon le pack
-    montant = 5000 if "Bronze" in pack else 10000 if "Argent" in pack else 20000
-    gain_net = int(montant * 0.8) # 4000 pour 5000 après gaz
-    
-    st.info(f"Pack choisi : {pack}")
-    st.write(f"✅ Vous recevrez **2 retraits de {gain_net} FCFA**.")
-    st.write(f"⛽ Frais de gaz : {int(montant * 0.2)} FCFA par retrait.")
-    
-    st.warning(f"📲 Envoyez votre dépôt au numéro Airtel : **[TON NUMÉRO ICI]**")
-    st.file_uploader("Envoyez la capture d'écran de votre transfert", type=["png", "jpg", "jpeg"])
-    
-    if st.button("Valider mon investissement"):
-        st.success("Preuve envoyée ! Lulu va vérifier et vous coupler sous peu.")
-
-elif menu == "Suivi de mon Cycle":
-    st.subheader("📊 État du compte")
-    st.info("Une fois couplé, vous verrez votre chrono de 14 jours ici.")
+# --- PARTIE VALIDATION ---
+elif choix_menu == "Espace de Validation 🔐":
+    code_admin = st.text_input("Entrez votre code secret", type="password")
+    if code_admin == "Ch1987":
+        st.write("### Retraits en attente")
+        if st.session_state.alertes_retrait:
+            for index, alerte in enumerate(st.session_state.alertes_retrait):
+                st.write(f"⚠️ **{alerte['nom']}** ({alerte['tel']})")
+                if st.button(f"Confirmer le paiement pour {alerte['nom']}", key=index):
+                    st.session_state.membres[alerte['tel']]["nombre_retraits"] += 1
+                    st.session_state.alertes_retrait.pop(index)
+                    st.success("Paiement validé !")
+        else:
+            st.write("Rien à valider pour le moment.")

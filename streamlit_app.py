@@ -91,4 +91,5 @@ elif choix_menu == "Espace de Validation 🔐":
                     st.session_state.alertes_retrait.pop(index)
                     st.success("Paiement validé !")
         else:
-            st.write("Rien à valider pour le moment.")
+            st.write("Rien à valider pour le moment.")o
+u
